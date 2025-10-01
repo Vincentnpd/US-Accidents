@@ -1,0 +1,17 @@
+# Bỏ qua thư mục cache của Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Bỏ qua file Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Bỏ qua các file dữ liệu lớn (nếu không muốn đẩy lên GitHub)
+data/raw/
+data/processed/
+
+# Bỏ qua file hệ thống
+.DS_Store
+Thumbs.db
+
+data/raw/US_Accidents_March23.csv
