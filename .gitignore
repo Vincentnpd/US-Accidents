@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # Bỏ qua thư mục cache của Python
+=======
+## Bỏ qua thư mục cache của Python
+>>>>>>> d4339f4 (cleaned'new')
 __pycache__/
 *.pyc
 *.pyo
@@ -9,9 +13,16 @@ __pycache__/
 # Bỏ qua các file dữ liệu lớn (nếu không muốn đẩy lên GitHub)
 data/raw/
 data/processed/
+<<<<<<< HEAD
+=======
+data/**/*.csv  # Bỏ qua mọi file .csv trong thư mục con của data
+>>>>>>> d4339f4 (cleaned'new')
 
 # Bỏ qua file hệ thống
 .DS_Store
 Thumbs.db
 
+<<<<<<< HEAD
 data/raw/US_Accidents_March23.csv
+=======
+>>>>>>> d4339f4 (cleaned'new')
