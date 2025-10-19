@@ -7,12 +7,15 @@ __pycache__/
 .ipynb_checkpoints/
 
 # --- Dữ liệu ---
-# Bỏ qua tất cả file dữ liệu CSV (nặng hoặc trung bình)
+# Bỏ qua tất cả file CSV trong thư mục data và các thư mục con
 data/**/*.csv
 
-# Bỏ qua toàn bộ dữ liệu gốc và đã xử lý
-data/raw/
-data/processed/*.csv
+# KHÔNG bỏ qua chính thư mục raw và processed
+!data/raw/
+!data/processed/
+
+# KHÔNG bỏ qua các file giữ chỗ như .gitkeep
+!data/**/.gitkeep
 
 # --- File hệ thống ---
 .DS_Store
