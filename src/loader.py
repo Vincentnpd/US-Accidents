@@ -1,41 +1,37 @@
 import pandas as pd
+import os
 
 class DataLoader:
-    """
-    Lớp chịu trách nhiệm nạp dữ liệu từ nhiều nguồn (CSV, Excel, API)
-    """
-    def __init__(self, source_type="csv"):
-        self.source_type = source_type
+    def __init__(self, source="csv"):
+        self.source = source
 
-    def load_from_csv(self, file_path: str) -> pd.DataFrame:
-        """Đọc dữ liệu từ file CSV"""
-        try:
-            df = pd.read_csv(file_path)
-            print(f" Đã nạp dữ liệu từ CSV: {df.shape[0]} dòng, {df.shape[1]} cột")
-            return df
-        except FileNotFoundError:
-            raise Exception(f" Không tìm thấy file: {file_path}")
-        except Exception as e:
-            raise Exception(f"Lỗi khi đọc CSV: {e}")
+    def load_filtered_csv(
+        self, path, start_year=2019, end_year=2023,
+        date_col="Start_Time", usecols=None, chunksize=500_000
+    ):
+        if not os.path.exists(path):
+            print(f"File không tồn tại: {path}")
+            return pd.DataFrame()
 
-    def load_from_excel(self, file_path: str, sheet_name=None) -> pd.DataFrame:
-        """Đọc dữ liệu từ Excel"""
-        try:
-            df = pd.read_excel(file_path, sheet_name=sheet_name)
-            print(f" Đã nạp dữ liệu từ Excel: {df.shape[0]} dòng, {df.shape[1]} cột")
-            return df
-        except Exception as e:
-            raise Exception(f"Lỗi khi đọc Excel: {e}")
+        print(f"Đang load dữ liệu từ {start_year} đến {end_year}...")
+        filtered_chunks = []
 
-    def load_from_api(self, url: str) -> pd.DataFrame:
-        """(Tuỳ chọn) Đọc dữ liệu từ API"""
-        import requests
-        try:
-            response = requests.get(url)
-            response.raise_for_status()
-            data = response.json()
-            df = pd.DataFrame(data)
-            print(f" Đã nạp dữ liệu từ API: {df.shape[0]} dòng")
-            return df
-        except Exception as e:
-            raise Exception(f"Lỗi khi gọi API: {e}")
+        for chunk in pd.read_csv(path, usecols=usecols, chunksize=chunksize):
+            if date_col not in chunk.columns:
+                print(f"Không tìm thấy cột '{date_col}'. Các cột có: {chunk.columns.tolist()}")
+                return pd.DataFrame()
+
+            chunk[date_col] = pd.to_datetime(chunk[date_col], errors="coerce")
+            mask = (chunk[date_col].dt.year >= start_year) & (chunk[date_col].dt.year <= end_year)
+            filtered = chunk.loc[mask]
+
+            if not filtered.empty:
+                filtered_chunks.append(filtered)
+
+        if not filtered_chunks:
+            print("Không có dữ liệu trong khoảng năm được chọn.")
+            return pd.DataFrame()
+
+        df_filtered = pd.concat(filtered_chunks, ignore_index=True)
+        print(f"Đã load {len(df_filtered):,} dòng ({start_year}-{end_year})")
+        return df_filtered
