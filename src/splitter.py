@@ -36,9 +36,9 @@ class DataSplitter:
     def split_fact(self, location_df: pd.DataFrame) -> pd.DataFrame:
         df = self.df.merge(location_df[["Street", "Location_ID"]], on="Street", how="left")
         fact_cols = [
-            "ID", "Severity", "Weather_Condition", "Visibility(mi)",
-            "Temperature(F)", "Humidity(%)", "Pressure(in)", "Wind_Speed(mph)",
-            "Precipitation(in)", "Location_ID", "Start_Time", "End_Time","Description",
+            "ID", "Severity","Start_Time", "End_Time", "Weather_Condition", "Visibility(mi)",
+            "Temperature(F)", "Humidity(%)", "Pressure(in)", "Wind_Speed(mph)","Wind_Chill(F)","Wind_Direction",
+            "Precipitation(in)", "Location_ID", "Description",
             "Number","Street","City","Timezone","Weather_Timestamp",
         ]
         fact_df = df[[col for col in fact_cols if col in df.columns]].drop_duplicates().reset_index(drop=True)
