@@ -1,0 +1,68 @@
+Lỗi (Err0r_NaN (Null))
+def fill_all_nulls_with_zero(self):
+        """Chuyển toàn bộ giá trị null thành 0"""
+        self.df = self.df.fillna(0)
+        print("Đã thay toàn bộ giá trị null bằng 0.")
+self.df = self.df.fillna(0) sẽ làm hỏng toàn bộ dữ liệu.
+VD: 
+- Dạng cột chữ Weather_Condition sẽ bị gán thành giá trị 0.
+- Temperature(F) sẽ bị gán giá trị 0. Điều này không đúng vì 0 độ F là rất lạnh
+- Cột như city sẽ bị gán giá trị 0. Điều này là không đúng vì không có city tên là 0
+-------------------------------------------------------------------------------+
+Khắc phục
+self.df['Weather_Condition'] = self.df['Weather_Condition'].fillna('Unknown')
+#Điền giá trị null thành Unknown
+
+self.df['Temperature(F)'] = self.df['Temperature(F)'].fillna(self.df['Temperature(F)'].median())
+#Chuyển giá trị null thành giá trị trung vị
+
+self.df['city'] = self.df['city'].fillna('Unknown')
+#Chuyển giá trị null thành giá trị Unknown
+
+self.df['End_Lat'] = self.df['End_Lat'].fillna('Unknown')
+#Chuyển giá trị null thành giá trị Unknown
+
+self.df['End_Lng'] = self.df['End_Lng'].fillna('Unknown')
+#Chuyển giá trị null thành giá trị Unknown
+
+self.df['Distance(mi)'] = self.df['Distance(mi)'].fillna(self.df['Distance(mi)'].median())
+#Chuyển giá trị null thành giá trị trung vị
+
+self.df['Precipitation(in)'] = self.df['Precipitation(in)'].fillna(0)
+#Chuyển giá trị null thành giá trị 0
+
+self.df['Wind_Chill(F)'] = self.df['Wind_Chill(F)'].fillna(pd.to_numeric(df['Temperature(F)'],errors='coerce'))
+#Chuyển giá trị null thành giá trị từ Cột Temperature
+
+self.df['Humidity(%)'] = self.df['Humidity(%)'].fillna(self.df['Humidity(%)'].median())
+#Chuyển giá trị null thành giá trị trung vị
+
+self.df['Pressure(in)'] = self.df['Pressure(in)'].fillna(self.df['Pressure(in)'].median())
+#Chuyển giá trị null thành giá trị trung vị
+
+self.df['Visibility(mi)'] = self.df['Visibility(mi)'].fillna(self.df['Visibility(mi)'].median())
+#Chuyển giá trị null thành giá trị trung vị
+
+self.df['Wind_Direction'] = self.df['Wind_Direction'].fillna('Unknown')
+#Chuyển giá trị null thành giá trị Unknown
+
+self.df['Wind_Speed(mph)'] = self.df['Wind_Speed(mph)'].fillna(self.df['Wind_Speed(mph)'].median())
+#Chuyển giá trị null thành giá trị trung vị
+
+self.df['Weather_Condition'] = self.df['Weather_Condition'].fillna('Unknown')
+#Chuyển giá trị null thành giá trị Unknown
+
+self.df['Sunrise_Sunset'] = self.df['Sunrise_Sunset'].fillna('Unknown')
+#Chuyển giá trị null thành giá trị Unknown
+
+self.df['Civil_Twilight'] = self.df['Civil_Twilight'].fillna('Unknown')
+#Chuyển giá trị null thành giá trị Unknown
+
+self.df['Nautical_Twilight'] = self.df['Nautical_Twilight'].fillna('Unknown')
+#Chuyển giá trị null thành giá trị Unknown
+
+self.df['Astronomical_Twilight'] = self.df['Astronomical_Twilight'].fillna('Unknown')
+#Chuyển giá trị null thành giá trị Unknown
+
+self.df['Weather_Timestamp'] = self.df['Weather_Timestamp'].fillna(pd.to_numeric(df['Start_Time'],errors='coerce'))
+#Chuyển giá trị null thành giá trị từ Cột Start_Time
