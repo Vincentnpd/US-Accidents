@@ -1,0 +1,92 @@
+Sửa các dữ liệu ngoại lệ:
+	Sau một hồi phân tích bộ dữ liệu tai nạn, một outlier nhiệt độ (ví dụ: -30°F hoặc 120°F) không phải là lỗi, mà đó là dữ liệu thật (ví dụ: bão tuyết ở Alaska hoặc sóng nhiệt ở Arizona). Và những sự kiện thời tiết khắc nghiệt này chính là nguyên nhân gây ra tai nạn nghiêm trọng. 
+Nếu:
++ Xóa: Làm mất đi thông tin quý giá nhất. Khi vứt bỏ những hàng dữ liệu "bão tuyết" và chỉ giữ lại những ngày "thời tiết bình thường". Mô hình sẽ không bao giờ biết được rằng bão tuyết gây tai nạn.
++ Thay đổi: Làm hỏng mối liên hệ giữa thời tiết và tai nạn.
+---------------------------------------------------------------------------
+Cách 1: giữ nguyên.
+
+Cách 2: thay đổi ta sử dụng phương pháp STD dựa vào giá trị trung bình mean và STD cho phép chúng ta kiểm tra được độ phân tán (hay là phần trăm bao phủ) của dữ liệu đó như thế nào. Ví dụ:
+
+Độ bao phủ với 1 STD từ mean là 68%
+Độ bao phủ với 2 STD từ mean là 95%
+Độ bao phủ với 3 STD từ mean là 99.7%
+Vậy nên với dữ liệu dạng Gauss có độ phân tán bình thường thì với 3STD, chúng ta sẽ bao phủ được khoảng > 99% của dữ liệu. Từ đó những điểm dữ liệu nằm ngoài 3STD sẽ được coi là outliers. Sau khi tìm ra ngưỡng trên dưới, ta tiến hành thay thế những outliers đó bằng các giá trị ngưỡng tìm được.
+from numpy import mean
+from numpy import std
+mean_temp, std_temp = mean(df['Temperature(F)']), std(df['Temperature(F)'])
+print('Mean: %.3f, Standard Deviation: %.3f' % (mean_temp, std_temp))
+
+lower_std, upper_std = mean_temp - 3*std_temp, mean_temp + 3*std_temp
+print('Lower Bound: %.3f, Upper Bound: %.3f' % (lower_std, upper_std))
+
+df['Temperature(F)'] = df['Temperature(F)'].apply(lambda x:lower_std  if x < lower_std else(upper_std if x > upper_std else x))
+
+Cách 2.2
+# 1. Tính toán
+mean_temp, std_temp = mean(df['Temperature(F)']), std(df['Temperature(F)'])
+
+# 2. Đặt ngưỡng (dùng 3 lần độ lệch chuẩn, 99.7%)
+std_threshold = 3
+lower_std = mean_temp - std_threshold * std_temp
+upper_std = mean_temp + std_threshold * std_temp
+
+print(f"Ngưỡng nhiệt độ hợp lệ: từ {lower_std:.2f}°F đến {upper_std:.2f}°F")
+
+# 3. Đếm số lượng outliers
+outliers = df[(df['Temperature(F)'] < lower_std) | (df['Temperature(F)'] > upper_std)]
+print(f"Tìm thấy {len(outliers)} hàng dữ liệu ngoại lai (chiếm {len(outliers)/len(df)*100:.2f}%)")
+
+# 4. Tạo một DataFrame mới CHỈ GIỮ LẠI dữ liệu bên trong ngưỡng
+# Đây là hành động 'xóa' outliers
+df_da_xoa_outliers = df[(df['Temperature(F)'] >= lower_std) & (df['Temperature(F)'] <= upper_std)]
+
+print(f"Dữ liệu gốc có {len(df)} hàng.")
+print(f"Dữ liệu mới (đã xóa) có {len(df_da_xoa_outliers)} hàng.")
+
+Cách 3: Sử dụng IQR thay thế ouliers thành ngưỡng
+# 1. Tính Q1 và Q3
+Q1 = df['Temperature(F)'].quantile(0.25)
+Q3 = df['Temperature(F)'].quantile(0.75)
+
+# 2. Tính IQR
+IQR = Q3 - Q1
+
+# 3. Xác định ngưỡng trên và ngưỡng dưới
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+
+print(f"Q1 (25%): {Q1:.2f}°F")
+print(f"Q3 (75%): {Q3:.2f}°F")
+print(f"IQR: {IQR:.2f}°F")
+print(f"--- Ngưỡng nhiệt độ hợp lệ ---")
+print(f"Ngưỡng dưới (Lower Bound): {lower_bound:.2f}°F")
+print(f"Ngưỡng trên (Upper Bound): {upper_bound:.2f}°F")
+
+# 4. Lấy ra các hàng bị coi là ngoại lai
+outliers_iqr = df[(df['Temperature(F)'] < lower_bound) | (df['Temperature(F)'] > upper_bound)]
+
+print(f"\nTìm thấy {len(outliers_iqr)} giá trị ngoại lai (quá nóng hoặc quá lạnh) theo IQR.")
+
+# 5. Lọc bỏ ngoại lai (giữ lại dữ liệu 'sạch')
+df_sach_iqr = df[(df['Temperature(F)'] >= lower_bound) & (df['Temperature(F)'] <= upper_bound)]
+
+#6. Thay đổi ouliers thành ngưỡng
+df['Temperature(F)'] = df['Temperature(F)'].clip(lower=lower_bound, upper=upper_bound)
+
+Cách 4: Phân nhóm (Binning)
+Chuyển đổi cột số liên tục (Temperature) thành cột chữ (categorical).
+Phương pháp: Chia nhiệt độ thành các nhóm.
+
+Giải thích: Thay vì dùng con số -30°F, ta sẽ gán nó vào nhóm "Rất Lạnh". Mô hình sẽ học được rằng nhóm "Rất Lạnh" và "Rất Nóng" có rủi ro tai nạn cao.
+# Xác định các ngưỡng nhiệt độ
+bin_edges = [-100, 0, 32, 50, 75, 95, 200]
+# Đặt tên cho các nhóm
+bin_labels = ['Rất Lạnh (<0)', 'Đóng Băng (0-32)', 'Lạnh (32-50)', 
+              'Ôn Hoà (50-75)', 'Nóng (75-95)', 'Rất Nóng (>95)']
+
+# Tạo cột mới 'Temp_1'
+df['Temp_1'] = pd.cut(df['Temperature(F)'], bins=bin_edges, labels=bin_labels, right=False)
+
+# Bây giờ bạn có thể dùng cột 'Temp_1' để phân tích
+print(df[['Temperature(F)', 'Temp_1']].head(10))
