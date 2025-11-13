@@ -1,154 +1,55 @@
-# Project Summary
+# US Traffic Accidents Analysis (2019-2022)
 
-## Overview
-Analysis of US traffic accidents (2019-2022) using ETL pipeline to generate insights for Tableau visualization.
+Analysis of traffic accident patterns in the United States using data from Kaggle.
 
-## Files Created
+## Project Structure
 
-### Core Modules (src/)
-1. **config.py** - Configuration settings
-2. **loader.py** - Load and filter data
-3. **eda.py** - Exploratory analysis
-4. **cleaner.py** - Clean data and create features
-5. **splitter.py** - Create star schema
-6. **aggregate.py** - Generate aggregates
+```
+us-accidents-analysis/
+├── data/
+│   ├── raw/                      # Raw dataset
+│   └── processed/                # Processed outputs
+│       ├── cleaned/              # Cleaned data
+│       ├── dimensions/           # Dimension tables
+│       ├── fact/                 # Fact table
+│       └── aggregates/           # Aggregate tables
+├── src/
+│   ├── config.py                 # Configuration
+│   ├── loader.py                 # Data loading
+│   ├── eda.py                    # Exploratory analysis
+│   ├── cleaner.py                # Data cleaning
+│   ├── splitter.py               # Star schema creation
+│   ├── aggregate.py              # Aggregate generation
+│   └── utils.py                  # Helper functions
+├── main.py                       # Pipeline orchestrator
+├── requirements.txt
+└── README.md
+```
 
-### Main Pipeline
-- **main.py** - Orchestrates entire pipeline
+## Setup
 
-### Setup
-- **setup.py** - Create directory structure
-- **requirements.txt** - Python dependencies
-- **README.md** - Documentation
-
-## Quick Start
-
+1. Install dependencies:
 ```bash
-# 1. Setup
-python setup.py
 pip install -r requirements.txt
-
-# 2. Download data
-# Place US_Accidents_March23.csv in data/raw/
-
-# 3. Run pipeline
-python main.py
 ```
 
-## Pipeline Flow
+2. Download dataset:
+   - Source: https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents
+   - Place `US_Accidents_March23.csv` in `data/raw/`
 
-```
-Raw Data (7.7M records)
-    ↓
-[loader.py] Filter 2019-2022
-    ↓
-[eda.py] Analyze patterns
-    ↓
-[cleaner.py] Clean + Create features
-    ↓
-[splitter.py] Create star schema
-    ↓
-[aggregate.py] Generate aggregates
-    ↓
-Output: 10 CSV files ready for Tableau
+3. Create directories:
+```bash
+mkdir -p data/raw data/processed/{cleaned,dimensions,fact,aggregates}
 ```
 
-## Output Structure
+## Usage
 
-```
-data/processed/
-├── cleaned/
-│   └── accidents_cleaned.csv          (Main dataset)
-├── dimensions/
-│   ├── dim_time.csv                   (Time dimension)
-│   ├── dim_location.csv               (Location dimension)
-│   └── dim_weather.csv                (Weather dimension)
-├── fact/
-│   └── fact_accident.csv              (Fact table)
-└── aggregates/
-    ├── agg_state_year.csv             (State trends)
-    ├── agg_city_severity.csv          (City analysis)
-    ├── agg_time_pattern.csv           (Time patterns)
-    ├── agg_weather_impact.csv         (Weather effects)
-    └── agg_infrastructure.csv         (Infrastructure)
-```
-
-## Key Features
-
-### Data Cleaning
-- Missing value imputation
-- Outlier handling (domain knowledge based)
-- Invalid record removal
-
-### Feature Engineering
-- 9 time features (Year, Month, Hour, Time_Period, etc.)
-- 4 weather features (Is_Rain, Is_Snow, Is_Fog, Low_Visibility)
-- 1 infrastructure feature (Infra_Score)
-- Location ID for joining
-
-### Star Schema
-- 1 Fact table: accident details
-- 3 Dimension tables: time, location, weather
-- Validated relationships
-
-### Aggregates
-- 5 aggregate tables for different analyses
-- Pareto analysis (80/20 rule)
-- Year-over-year trends
-
-## Technical Details
-
-### Data Volume
-- Input: ~7.7M records (2016-2023)
-- Filtered: ~2.8M records (2019-2022)
-- Final: ~2.8M records after cleaning
-
-### Processing Time
-- Expected: 5-10 minutes on standard laptop
-- Depends on system specifications
-
-### Memory Usage
-- Raw data: ~3.2 GB
-- Processed: ~1.8 GB (optimized dtypes)
-
-## Code Quality
-
-### Best Practices Applied
-- Modular design (separate concerns)
-- Configuration file for parameters
-- Error handling
-- Input validation
-- Memory optimization
-- Clear documentation
-
-## For Tableau
-
-All output files are ready to import into Tableau:
-1. Import aggregate files
-2. Create relationships if needed
-3. Build dashboards based on aggregates
-
-## Customization
-
-Edit `src/config.py` to change:
-- Year range
-- Outlier thresholds
-- File paths
-- Aggregation parameters
-
-## Dataset Source
-
-Kaggle: US Accidents Dataset (Sobhan Moosavi)
-https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents
-
-## Execution
-
-Single command runs entire pipeline:
+Run complete pipeline:
 ```bash
 python main.py
 ```
 
-Individual modules can be tested:
+Run individual modules:
 ```bash
 python src/loader.py
 python src/eda.py
@@ -156,3 +57,92 @@ python src/cleaner.py
 python src/splitter.py
 python src/aggregate.py
 ```
+
+## Pipeline Steps
+
+1. **Data Loading** (loader.py)
+   - Load raw CSV data
+   - Filter years 2019-2022
+   - Basic statistics
+
+2. **Exploratory Analysis** (eda.py)
+   - Temporal patterns
+   - Geographic distribution
+   - Severity analysis
+   - Data quality checks
+
+3. **Data Cleaning** (cleaner.py)
+   - Handle missing values
+   - Remove outliers
+   - Create time features
+   - Create weather features
+   - Create infrastructure features
+
+4. **Star Schema** (splitter.py)
+   - Dimension tables: time, location, weather
+   - Fact table: accidents
+   - Relationship validation
+
+5. **Aggregates** (aggregate.py)
+   - State-year aggregates
+   - City-severity aggregates
+   - Time pattern aggregates
+   - Weather impact aggregates
+   - Infrastructure aggregates
+
+## Output Files
+
+### Cleaned Data
+- `accidents_cleaned.csv` - Main cleaned dataset
+
+### Star Schema
+- `dim_time.csv` - Time dimension
+- `dim_location.csv` - Location dimension
+- `dim_weather.csv` - Weather dimension
+- `fact_accident.csv` - Fact table
+
+### Aggregates (for Tableau)
+- `agg_state_year.csv` - State level by year
+- `agg_city_severity.csv` - City level with severity
+- `agg_time_pattern.csv` - Time patterns
+- `agg_weather_impact.csv` - Weather impact
+- `agg_infrastructure.csv` - Infrastructure impact
+
+## Configuration
+
+Edit `src/config.py` to customize:
+- File paths
+- Year range (default 2019-2022)
+- Outlier thresholds
+- Aggregation parameters
+
+## Data Quality
+
+### Outlier Handling
+- Temperature: -20°F to 120°F
+- Visibility: 0 to 10 miles
+- Duration: 0 to 24 hours
+- Invalid severity values removed
+
+### Features Created
+- Time: Year, Month, Hour, Day of Week, Time Period, etc.
+- Weather: Rain/Snow/Fog flags, Low visibility flag
+- Infrastructure: Infrastructure score
+- Location: Location ID for joining
+
+## Requirements
+
+- Python 3.8+
+- pandas 2.0+
+- numpy 1.24+
+- pyarrow 12.0+ (for parquet support)
+
+## Dataset Citation
+
+Moosavi, Sobhan, Mohammad Hossein Samavatian, Srinivasan Parthasarathy, and Rajiv Ramnath. "A Countrywide Traffic Accident Dataset.", 2019.
+
+Dataset: https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents
+
+## License
+
+This project is for educational purposes.
