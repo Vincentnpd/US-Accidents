@@ -12,7 +12,6 @@ Analysis of US traffic accidents (2019-2022) using ETL pipeline to generate insi
 4. **cleaner.py** - Clean data and create features
 5. **splitter.py** - Create star schema
 6. **aggregate.py** - Generate aggregates
-7. **utils.py** - Helper functions
 
 ### Main Pipeline
 - **main.py** - Orchestrates entire pipeline
@@ -121,12 +120,6 @@ data/processed/
 - Input validation
 - Memory optimization
 - Clear documentation
-
-### No External Styling
-- Clean, professional code
-- No emoji or excessive formatting
-- Academic-appropriate style
-- Suitable for university submission
 
 ## For Tableau
 
