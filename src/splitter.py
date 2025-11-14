@@ -38,6 +38,7 @@ class DataSplitter:
         print("\nCreating dim_location")
         
         location_cols = ['Location_ID', 'City', 'State', 'County', 'Street',
+                        'Start_Lat', 'Start_Lng', 'End_Lat', 'End_Lng',
                         'Amenity', 'Crossing', 'Junction', 'Railway',
                         'Station', 'Stop', 'Traffic_Signal', 'Infra_Score']
         
