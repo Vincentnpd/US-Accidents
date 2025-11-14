@@ -1,56 +1,135 @@
-import os
+"""
+Data modeling module
+Create star schema with fact and dimension tables
+"""
+
 import pandas as pd
+import config
+
 
 class DataSplitter:
-    def __init__(self, df: pd.DataFrame):
+    """Create star schema from cleaned data"""
+    
+    def __init__(self, df):
         self.df = df.copy()
-
-    def split_thoi_gian(self) -> pd.DataFrame:
-        self.df['Start_Time'] = pd.to_datetime(self.df['Start_Time'], errors='coerce')
-        self.df['End_Time'] = pd.to_datetime(self.df['End_Time'], errors='coerce')
-
-        time_df = self.df[['Start_Time', 'End_Time']].drop_duplicates().reset_index(drop=True)
-        time_df["Date"] = time_df["Start_Time"].dt.date
-        time_df["Year"] = time_df["Start_Time"].dt.year
-        time_df["Month"] = time_df["Start_Time"].dt.month
-        time_df["Day"] = time_df["Start_Time"].dt.day
-        time_df["Hour"] = time_df["Start_Time"].dt.hour
-
-        # Duration dạng giờ:phút
-        duration = (time_df["End_Time"] - time_df["Start_Time"])
-        time_df["Duration"] = (
-            duration.dt.components["hours"].astype(str)
-            + ":" +
-            duration.dt.components["minutes"].astype(str).str.zfill(2)
+        
+    def create_dim_time(self):
+        """Create time dimension table"""
+        print("\nCreating dim_time")
+        
+        time_cols = ['Start_Time', 'Year', 'Month', 'Day', 'Hour', 
+                     'DayOfWeek', 'DayName', 'Time_Period', 'Is_Weekend']
+        
+        dim_time = self.df[time_cols].drop_duplicates().reset_index(drop=True)
+        dim_time['Time_ID'] = range(1, len(dim_time) + 1)
+        
+        cols = ['Time_ID'] + time_cols
+        dim_time = dim_time[cols].sort_values('Start_Time').reset_index(drop=True)
+        
+        output_path = config.DIM_DIR / "dim_time.csv"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        dim_time.to_csv(output_path, index=False)
+        
+        print(f"dim_time created: {len(dim_time):,} records")
+        return dim_time
+    
+    def create_dim_location(self):
+        """Create location dimension table"""
+        print("\nCreating dim_location")
+        
+        location_cols = ['Location_ID', 'City', 'State', 'County', 'Street',
+                        'Amenity', 'Crossing', 'Junction', 'Railway',
+                        'Station', 'Stop', 'Traffic_Signal', 'Infra_Score']
+        
+        available_cols = [col for col in location_cols if col in self.df.columns]
+        
+        dim_location = self.df[available_cols].drop_duplicates(
+            subset=['Location_ID']
+        ).reset_index(drop=True)
+        
+        dim_location = dim_location.sort_values(['State', 'City']).reset_index(drop=True)
+        
+        output_path = config.DIM_DIR / "dim_location.csv"
+        dim_location.to_csv(output_path, index=False)
+        
+        print(f"dim_location created: {len(dim_location):,} records")
+        return dim_location
+    
+    def create_dim_weather(self):
+        """Create weather dimension table"""
+        print("\nCreating dim_weather")
+        
+        weather_cols = ['Temperature(F)', 'Visibility(mi)', 'Precipitation(in)',
+                       'Weather_Condition', 'Is_Rain', 'Is_Snow', 'Is_Fog', 
+                       'Low_Visibility']
+        
+        available_cols = [col for col in weather_cols if col in self.df.columns]
+        
+        dim_weather = self.df[available_cols + ['ID']].copy()
+        dim_weather['Weather_ID'] = range(1, len(dim_weather) + 1)
+        
+        cols = ['Weather_ID'] + available_cols
+        dim_weather = dim_weather[cols]
+        
+        output_path = config.DIM_DIR / "dim_weather.csv"
+        dim_weather.to_csv(output_path, index=False)
+        
+        print(f"dim_weather created: {len(dim_weather):,} records")
+        return dim_weather
+    
+    def create_fact_table(self, dim_time, dim_weather):
+        """Create fact table"""
+        print("\nCreating fact_accident")
+        
+        fact = self.df.copy()
+        
+        # Merge Time_ID
+        fact = fact.merge(
+            dim_time[['Start_Time', 'Time_ID']],
+            on='Start_Time',
+            how='left'
         )
-
-        return time_df
-
-    def split_vi_tri(self) -> pd.DataFrame:
-        location_cols = ["Street", "City", "State", "Zipcode", "Country","Amenity", "Bump", "Crossing",
-                         "Give_Way", "Junction","No_Exit", "Railway", "Roundabout", "Station","Stop",]
-        location_df = self.df[location_cols].drop_duplicates(subset=["Street"]).reset_index(drop=True)
-        location_df["Location_ID"] = range(1, len(location_df) + 1)
-        return location_df
-
-    def split_fact(self, location_df: pd.DataFrame) -> pd.DataFrame:
-        df = self.df.merge(location_df[["Street", "Location_ID"]], on="Street", how="left")
-        fact_cols = [
-            "ID", "Severity","Start_Time", "End_Time", "Weather_Condition", "Visibility(mi)",
-            "Temperature(F)", "Humidity(%)", "Pressure(in)", "Wind_Speed(mph)","Wind_Chill(F)","Wind_Direction",
-            "Precipitation(in)", "Location_ID", "Description",
-            "Number","Street","City","Timezone","Weather_Timestamp",
-        ]
-        fact_df = df[[col for col in fact_cols if col in df.columns]].drop_duplicates().reset_index(drop=True)
-        return fact_df
-
-    def export_all(self, output_dir: str):
-        os.makedirs(output_dir, exist_ok=True)
-        time_df = self.split_thoi_gian()
-        location_df = self.split_vi_tri()
-        fact_df = self.split_fact(location_df)
-
-        time_df.to_csv(os.path.join(output_dir, "thoi_gian.csv"), index=False)
-        location_df.to_csv(os.path.join(output_dir, "vi_tri.csv"), index=False)
-        fact_df.to_csv(os.path.join(output_dir, "Accident_Detail.csv"), index=False)
-        print("Đã xuất tất cả bảng vào thư mục:", output_dir)
+        
+        # Add Weather_ID
+        fact['Weather_ID'] = dim_weather['Weather_ID'].values
+        
+        fact_cols = ['ID', 'Time_ID', 'Weather_ID', 'Location_ID',
+                    'Severity', 'Duration_min']
+        
+        available_cols = [col for col in fact_cols if col in fact.columns]
+        fact_accident = fact[available_cols]
+        
+        output_path = config.FACT_DIR / "fact_accident.csv"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        fact_accident.to_csv(output_path, index=False)
+        
+        print(f"fact_accident created: {len(fact_accident):,} records")
+        return fact_accident
+    
+    def validate_schema(self, dim_time, dim_location, fact):
+        """Validate relationships"""
+        print("\nValidating schema")
+        
+        missing_time = fact[~fact['Time_ID'].isin(dim_time['Time_ID'])].shape[0]
+        missing_location = fact[~fact['Location_ID'].isin(dim_location['Location_ID'])].shape[0]
+        
+        if missing_time == 0 and missing_location == 0:
+            print("Schema validation: PASSED")
+        else:
+            print(f"Warning: Missing Time_ID: {missing_time}, Location_ID: {missing_location}")
+    
+    def run_all(self):
+        """Create complete star schema"""
+        print("\n" + "="*60)
+        print("Creating Star Schema")
+        print("="*60)
+        
+        dim_time = self.create_dim_time()
+        dim_location = self.create_dim_location()
+        dim_weather = self.create_dim_weather()
+        fact = self.create_fact_table(dim_time, dim_weather)
+        
+        self.validate_schema(dim_time, dim_location, fact)
+        
+        print("\nStar schema created successfully")
+        return dim_time, dim_location, dim_weather, fact
