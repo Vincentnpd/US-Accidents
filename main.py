@@ -1,31 +1,100 @@
-import os
+"""
+Main pipeline orchestrator
+Run complete ETL pipeline from raw data to aggregates
+"""
+
 import sys
-import pandas as pd
+from pathlib import Path
+import time
 
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-sys.path.append(os.path.join(BASE_DIR, "src"))
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from src.loader import DataLoader
-from src.cleaner import DataCleaner
-from src.splitter import DataSplitter
+from loader import DataLoader
+from eda import EDA
+from cleaner import DataCleaner
+from splitter import DataSplitter
+from aggregate import Aggregator
+
+
+def print_step(step_num, title):
+    """Print step header"""
+    print("\n" + "="*60)
+    print(f"STEP {step_num}: {title}")
+    print("="*60)
+
 
 def main():
-    file_path = os.path.join(BASE_DIR, "data", "raw", "US_Accidents_March23.csv")
-    output_cleaned = os.path.join(BASE_DIR, "data", "processed", "US_Accidents_Cleaned.csv")
-    output_split = os.path.join(BASE_DIR, "data", "processed",)
+    """Run complete pipeline"""
+    start_time = time.time()
+    
+    print("\n" + "="*60)
+    print("US ACCIDENTS ANALYSIS PIPELINE (2019-2022)")
+    print("="*60)
+    
+    try:
+        # Step 1: Load Data
+        print_step(1, "DATA LOADING")
+        loader = DataLoader()
+        df = loader.load_data()
+        df = loader.filter_by_year()
+        loader.get_summary()
+        
+        # Step 2: Exploratory Data Analysis
+        print_step(2, "EXPLORATORY DATA ANALYSIS")
+        eda = EDA(df)
+        eda.run_all()
+        
+        # Step 3: Data Cleaning
+        print_step(3, "DATA CLEANING")
+        cleaner = DataCleaner(df)
+        df_cleaned = cleaner.run_all()
+        
+        # Step 4: Create Star Schema
+        print_step(4, "STAR SCHEMA CREATION")
+        splitter = DataSplitter(df_cleaned)
+        splitter.run_all()
+        
+        # Step 5: Generate Aggregates
+        print_step(5, "AGGREGATE GENERATION")
+        aggregator = Aggregator()
+        aggregator.run_all()
+        
+        # Summary
+        elapsed = time.time() - start_time
+        
+        print("\n" + "="*60)
+        print("PIPELINE COMPLETED SUCCESSFULLY")
+        print("="*60)
+        print(f"\nExecution time: {elapsed:.1f} seconds ({elapsed/60:.1f} minutes)")
+        print(f"\nOutput files created in data/processed/:")
+        print("  - cleaned/accidents_cleaned.csv")
+        print("  - dimensions/dim_time.csv")
+        print("  - dimensions/dim_location.csv")
+        print("  - dimensions/dim_weather.csv")
+        print("  - fact/fact_accident.csv")
+        print("  - aggregates/agg_state_year.csv")
+        print("  - aggregates/agg_city_severity.csv")
+        print("  - aggregates/agg_time_pattern.csv")
+        print("  - aggregates/agg_weather_impact.csv")
+        print("  - aggregates/agg_infrastructure.csv")
+        
+        print("\nData is ready for Tableau visualization")
+        
+    except FileNotFoundError as e:
+        print(f"\nError: {e}")
+        print("\nPlease ensure dataset is placed at:")
+        print("  data/raw/US_Accidents_March23.csv")
+        print("\nDownload from:")
+        print("  https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents")
+        sys.exit(1)
+        
+    except Exception as e:
+        print(f"\nError occurred: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
 
-    loader = DataLoader("csv")
-    df = loader.load_filtered_csv(path=file_path, start_year=2019, end_year=2023, date_col="Start_Time")
 
-    print("1. Làm sạch dữ liệu")
-    cleaner = DataCleaner(df)
-    df_clean = cleaner.run_full_pipeline()
-    df_clean.to_csv(output_cleaned, index=False)
-    print("Đã lưu dữ liệu đã làm sạch tại:", output_cleaned)
-
-    print("2. Tách dữ liệu thành các bảng")
-    splitter = DataSplitter(df_clean)
-    splitter.export_all(output_split)
-    print("XONG NHA AE!")
 if __name__ == "__main__":
     main()
