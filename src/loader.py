@@ -4,16 +4,14 @@ Load raw data and filter by time period
 """
 
 import pandas as pd
-from pathlib import Path
 import config
-
 
 class DataLoader:
     """Load and filter accident data"""
     
     def __init__(self):
-        self.raw_path = config.RAW_DATA_PATH
-        self.df = None
+        self.raw_path = config.RAW_DATA_PATH #Đường dẫn tới US_Accidents_March23.csv
+        self.df = None                      
         
     def load_data(self):
         """Load raw CSV data with optimized dtypes"""
@@ -50,16 +48,16 @@ class DataLoader:
             low_memory=False
         )
         
-        print(f"Loaded {len(self.df):,} records")
+        print(f"Loaded {len(self.df):,} record(s)")
         return self.df
     
-    def filter_by_year(self, start_year=None, end_year=None):
+    def filter_by_year(self): #xóa start_year=None, end_year=None
         """Filter data by year range"""
-        start_year = start_year or config.START_YEAR
-        end_year = end_year or config.END_YEAR
+        start_year = config.START_YEAR  #xóa start_year or
+        end_year = config.END_YEAR     #xóa end_year or 
         
         print(f"Filtering data: {start_year}-{end_year}")
-        self.df['Start_Time'] = pd.to_datetime(self.df['Start_Time'], errors='coerce')
+        self.df['Start_Time'] = pd.to_datetime(self.df['Start_Time'], errors='coerce') 
         self.df['End_Time'] = pd.to_datetime(self.df['End_Time'], errors='coerce')        
         self.df['Year'] = self.df['Start_Time'].dt.year
         initial_count = len(self.df)
@@ -69,18 +67,22 @@ class DataLoader:
             (self.df['Year'] <= end_year)
         ].copy()
         
-        print(f"Filtered to {len(self.df):,} records ({len(self.df)/initial_count*100:.1f}%)")
+        print(f"Filtered to {len(self.df):,} record(s) ({len(self.df)/initial_count*100:.2f}%)")
         return self.df
     
     def get_summary(self):
         """Print basic summary statistics"""
+        min_date = self.df['Start_Time'].min()
+        max_date = self.df['Start_Time'].max()
+        count_states = self.df['State'].nunique()
+        count_cities = self.df['City'].nunique()
         print("\n" + "="*60)
         print("Data Summary")
         print("="*60)
         print(f"Total records: {len(self.df):,}")
-        print(f"Date range: {self.df['Start_Time'].min()} to {self.df['Start_Time'].max()}")
-        print(f"States: {self.df['State'].nunique()}")
-        print(f"Cities: {self.df['City'].nunique()}")
+        print(f"Date range: {min_date} to {max_date}")
+        print(f"States: {count_states}")
+        print(f"Cities: {count_cities}")
         print(f"\nSeverity distribution:")
         print(self.df['Severity'].value_counts().sort_index())
         print("="*60)
