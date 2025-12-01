@@ -73,11 +73,12 @@ def main():
         print("  - dimensions/dim_location.csv")
         print("  - dimensions/dim_weather.csv")
         print("  - fact/fact_accident.csv")
-        print("  - aggregates/agg_state_year.csv")
-        print("  - aggregates/agg_city_severity.csv")
-        print("  - aggregates/agg_time_pattern.csv")
-        print("  - aggregates/agg_weather_impact.csv")
+        print("  - aggregates/agg_federal().csv")
+        print("  - aggregates/agg_state_anomaly.csv")
         print("  - aggregates/agg_infrastructure.csv")
+        print("  - aggregates/agg_weather_deep.csv")
+        print("  - aggregates/agg_city_pareto.csv")
+        print("  - aggregates/agg_time_pattern.csv")        
         
         print("\nData is ready for Tableau visualization")
         
