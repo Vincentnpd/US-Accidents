@@ -3,7 +3,6 @@
 Analysis of traffic accident patterns in the United States using data from Kaggle.
 
 ## Project Structure
-
 ```
 us-accidents-analysis/
 ├── data/
@@ -74,14 +73,13 @@ python src/aggregate.py
 3. **Data Cleaning** (cleaner.py)
    - Handle missing values
    - Remove outliers
-   - Create time features
-   - Create weather features
-   - Create infrastructure features
+   - Standardize data types
+   - Validate severity values
 
 4. **Star Schema** (splitter.py)
-   - Dimension tables: time, location, weather
-   - Fact table: accidents
-   - Relationship validation
+   - Create dimension tables: dim_date, dim_location, dim_weather
+   - Create fact table: accident_details
+   - Validate referential integrity
 
 5. **Aggregates** (aggregate.py)
    - State-year aggregates
@@ -90,23 +88,108 @@ python src/aggregate.py
    - Weather impact aggregates
    - Infrastructure aggregates
 
+## Star Schema Design
+
+### Schema Diagram
+```
+                          ┌─────────────────────┐
+                          │      dim_date       │
+                          ├─────────────────────┤
+                          │ full_date (PK)      │
+                          │ day                 │
+                          │ month               │
+                          │ quarter             │
+                          │ year                │
+                          └──────────┬──────────┘
+                                     │
+                                     │
+┌─────────────────────┐              │              ┌─────────────────────┐
+│    dim_location     │              │              │    dim_weather      │
+├─────────────────────┤              │              ├─────────────────────┤
+│ location_id (PK)    │              │              │ weather_id (PK)     │
+│ street              │              │              │ weather_condition   │
+│ city                │              │              └──────────┬──────────┘
+│ county              │              │                         │
+│ state               │    ┌─────────┴─────────┐               │
+│ zipcode             │    │  accident_details │               │
+│ timezone            │    ├───────────────────┤               │
+│ total_amenity       │    │ id (PK)           │               │
+│ total_crossing      │    │ severity          │               │
+│ total_junction      ├────┤ weather_id (FK)   ├───────────────┘
+│ total_stop          │    │ location_id (FK)  │
+│ total_traffic_signal│    │ full_date (FK)    │
+└─────────────────────┘    │ start_time        │
+                           │ end_time          │
+                           │ duration          │
+                           │ description       │
+                           └───────────────────┘
+```
+
+### Table Definitions
+
+#### dim_date
+| Column | Type | Description |
+|--------|------|-------------|
+| full_date | DATE (PK) | Date extracted from start_time |
+| day | INT | Day of month (1-31) |
+| month | INT | Month (1-12) |
+| quarter | INT | Quarter (1-4) |
+| year | INT | Year |
+
+#### dim_location
+| Column | Type | Description |
+|--------|------|-------------|
+| location_id | VARCHAR (PK) | Composite key: street_city |
+| street | VARCHAR | Street name |
+| city | VARCHAR | City name |
+| county | VARCHAR | County name |
+| state | VARCHAR | State code |
+| zipcode | VARCHAR | Zip code |
+| timezone | VARCHAR | Timezone |
+| total_amenity | INT | Count of accidents near amenity |
+| total_crossing | INT | Count of accidents near crossing |
+| total_junction | INT | Count of accidents near junction |
+| total_stop | INT | Count of accidents near stop sign |
+| total_traffic_signal | INT | Count of accidents near traffic signal |
+
+#### dim_weather
+| Column | Type | Description |
+|--------|------|-------------|
+| weather_id | VARCHAR (PK) | Surrogate key: W + index |
+| weather_condition | VARCHAR | Weather condition description |
+
+#### accident_details (Fact Table)
+| Column | Type | Description |
+|--------|------|-------------|
+| id | VARCHAR (PK) | Accident ID from source |
+| severity | INT | Severity level (1-4) |
+| weather_id | VARCHAR (FK) | Reference to dim_weather |
+| location_id | VARCHAR (FK) | Reference to dim_location |
+| full_date | DATE (FK) | Reference to dim_date |
+| start_time | TIMESTAMP | Accident start time |
+| end_time | TIMESTAMP | Accident end time |
+| duration | DECIMAL | Duration in minutes |
+| description | TEXT | Accident description |
+
 ## Output Files
 
 ### Cleaned Data
 - `accidents_cleaned.csv` - Main cleaned dataset
 
-### Star Schema
-- `dim_time.csv` - Time dimension
-- `dim_location.csv` - Location dimension
-- `dim_weather.csv` - Weather dimension
-- `fact_accident.csv` - Fact table
+### Star Schema (dimensions/)
+- `dim_date.csv` - Date dimension
+- `dim_location.csv` - Location dimension with infrastructure counts
+- `dim_weather.csv` - Weather condition dimension
 
-### Aggregates (for Tableau)
-- `agg_state_year.csv` - State level by year
-- `agg_city_severity.csv` - City level with severity
-- `agg_time_pattern.csv` - Time patterns
-- `agg_weather_impact.csv` - Weather impact
-- `agg_infrastructure.csv` - Infrastructure impact
+### Star Schema (fact/)
+- `accident_details.csv` - Fact table
+
+### Aggregates (aggregates/)
+- `agg_state_year.csv` - State level metrics by year
+- `agg_city_severity.csv` - City level with severity breakdown
+- `agg_time_pattern.csv` - Time-based patterns
+- `agg_weather_impact.csv` - Weather condition impact
+- `agg_infrastructure.csv` - Infrastructure feature impact
 
 ## Configuration
 
@@ -124,11 +207,12 @@ Edit `src/config.py` to customize:
 - Duration: 0 to 24 hours
 - Invalid severity values removed
 
-### Features Created
-- Time: Year, Month, Hour, Day of Week, Time Period, etc.
-- Weather: Rain/Snow/Fog flags, Low visibility flag
-- Infrastructure: Infrastructure score
-- Location: Location ID for joining
+### Key Transformations
+- location_id: Concatenation of street and city
+- weather_id: 'W' prefix with sequential index after deduplication
+- full_date: Date portion extracted from start_time
+- duration: Calculated as (end_time - start_time) in minutes
+- Infrastructure counts: Aggregated boolean flags by location
 
 ## Requirements
 
