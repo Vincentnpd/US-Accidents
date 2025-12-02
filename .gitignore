@@ -1,0 +1,23 @@
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+
+# --- Jupyter Notebook ---
+.ipynb_checkpoints/
+
+# --- Dữ liệu ---
+# Bỏ qua file .env
+src/.env
+
+# KHÔNG bỏ qua chính thư mục raw và processed
+!data/raw/
+!data/processed/
+
+# KHÔNG bỏ qua các file giữ chỗ như .gitkeep
+!data/**/.gitkeep
+
+# --- File hệ thống ---
+.DS_Store
+Thumbs.db
+data/
