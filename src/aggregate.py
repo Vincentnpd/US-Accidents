@@ -166,8 +166,8 @@ class Aggregator:
         agg['cumulative_accidents'] = agg['total_accidents'].cumsum()
         
         # Formula references for Tableau
-        agg['formula_yoy'] = '(ZN(SUM([Accidents])) - LOOKUP(ZN(SUM([Accidents])), -1)) / ABS(LOOKUP(ZN(SUM([Accidents])), -1)) * 100'
-        agg['formula_high_sev'] = 'SUM(IF [Severity] >= 3 THEN 1 ELSE 0 END)'
+        #agg['formula_yoy'] = '(ZN(SUM([Accidents])) - LOOKUP(ZN(SUM([Accidents])), -1)) / ABS(LOOKUP(ZN(SUM([Accidents])), -1)) * 100'
+        #agg['formula_high_sev'] = 'SUM(IF [Severity] >= 3 THEN 1 ELSE 0 END)'
         
         # Validation
         agg['is_valid'] = (
@@ -258,8 +258,8 @@ class Aggregator:
         agg['anomaly_category'] = agg['severity_zscore'].apply(categorize)
         
         # Formulas
-        agg['formula_anomaly'] = 'IF [Avg Severity] > {FIXED : AVG([Severity])} THEN 1 ELSE 0 END'
-        agg['formula_zscore'] = '([State Avg] - [National Avg]) / [National Std]'
+        #agg['formula_anomaly'] = 'IF [Avg Severity] > {FIXED : AVG([Severity])} THEN 1 ELSE 0 END'
+        #agg['formula_zscore'] = '([State Avg] - [National Avg]) / [National Std]'
         
         # Validation
         agg['is_valid'] = (
@@ -355,8 +355,8 @@ class Aggregator:
         agg['high_severity_rate'] = agg['total_high_severity'] / agg['total_accidents'] * 100
         
         # Formulas
-        agg['formula_risk'] = 'Junction*3 + Traffic_Signal*2 + Crossing*2 + Stop*1 + Amenity*1'
-        agg['formula_high_risk'] = 'IF [Risk Score] > MEDIAN([Risk Score]) THEN 1 ELSE 0 END'
+        #agg['formula_risk'] = 'Junction*3 + Traffic_Signal*2 + Crossing*2 + Stop*1 + Amenity*1'
+        #agg['formula_high_risk'] = 'IF [Risk Score] > MEDIAN([Risk Score]) THEN 1 ELSE 0 END'
         
         # Validation
         agg['is_valid'] = (
@@ -482,8 +482,8 @@ class Aggregator:
         agg['high_severity_rate'] = agg['total_high_severity'] / agg['total_accidents'] * 100
         
         # Formulas
-        agg['formula_impact'] = '([Weather Avg] - [Clear Baseline]) / [Clear Baseline] * 100'
-        agg['formula_risk'] = 'Weather_Score + Severity_Score + Impact_Score'
+        #agg['formula_impact'] = '([Weather Avg] - [Clear Baseline]) / [Clear Baseline] * 100'
+        #agg['formula_risk'] = 'Weather_Score + Severity_Score + Impact_Score'
         
         # Validation
         agg['is_valid'] = (

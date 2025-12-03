@@ -10,7 +10,50 @@ Creates star schema from cleaned data:
 """
 
 import pandas as pd
+import os
+import time
 import config
+
+
+def safe_to_csv(df, output_path, max_retries=3, retry_delay=2):
+    """
+    Safely save DataFrame to CSV with retry logic for permission errors.
+    
+    Args:
+        df: DataFrame to save
+        output_path: Path to save file
+        max_retries: Maximum number of retry attempts
+        retry_delay: Seconds to wait between retries
+    """
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    for attempt in range(max_retries):
+        try:
+            # Try to remove existing file first
+            if output_path.exists():
+                try:
+                    os.remove(output_path)
+                except PermissionError:
+                    pass  # Will be caught in main try
+            
+            df.to_csv(output_path, index=False)
+            return True
+            
+        except PermissionError as e:
+            if attempt < max_retries - 1:
+                print(f"  Warning: File is locked. Retrying in {retry_delay}s... ({attempt + 1}/{max_retries})")
+                print(f"  Please close the file if it's open in Excel or another program.")
+                time.sleep(retry_delay)
+            else:
+                print(f"\n  ERROR: Cannot write to {output_path}")
+                print(f"  The file is being used by another process.")
+                print(f"  Please:")
+                print(f"    1. Close Excel or any program using this file")
+                print(f"    2. Close any File Explorer windows showing this folder")
+                print(f"    3. Run the script again")
+                raise e
+    
+    return False
 
 
 class DataSplitter:
@@ -45,10 +88,9 @@ class DataSplitter:
         # Sort by date
         dim_time = dim_time.sort_values('Date').reset_index(drop=True)
         
-        # Save
+        # Save with retry logic
         output_path = config.DIM_DIR / "dim_time.csv"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        dim_time.to_csv(output_path, index=False)
+        safe_to_csv(dim_time, output_path)
         
         print(f"  dim_time created: {len(dim_time):,} records")
         print(f"  PK: Date")
@@ -60,7 +102,7 @@ class DataSplitter:
         """
         Create location dimension table with aggregated boolean counts.
         
-        PK: Location_id (Street + "_" + City)
+        PK: Location_id (Street + "_" + City) - MUST BE UNIQUE
         """
         print("\nCreating dim_location")
         
@@ -73,23 +115,38 @@ class DataSplitter:
         location_cols = ['Street', 'City', 'County', 'State', 'Timezone']
         bool_cols = ['Amenity', 'Crossing', 'Junction', 'Stop', 'Traffic_Signal']
         
-        # Aggregate: count True values per location
-        agg_dict = {col: lambda x: (x == True).sum() for col in bool_cols}
+        # Check which columns exist
+        available_location = [c for c in location_cols if c in self.df.columns]
+        available_bool = [c for c in bool_cols if c in self.df.columns]
         
-        dim_location = self.df.groupby(
-            ['Location_id'] + location_cols, 
-            dropna=False
-        ).agg(agg_dict).reset_index()
+        # Build aggregation dict:
+        # - Location columns: take first value
+        # - Boolean columns: sum of True values
+        agg_dict = {}
+        for col in available_location:
+            agg_dict[col] = 'first'
+        for col in available_bool:
+            agg_dict[col] = lambda x: (x == True).sum()
+        
+        # Groupby ONLY Location_id to ensure uniqueness
+        dim_location = self.df.groupby('Location_id', dropna=False).agg(agg_dict).reset_index()
         
         # Sort
         dim_location = dim_location.sort_values(
             ['State', 'City']
         ).reset_index(drop=True)
         
-        # Save
+        # Validate uniqueness
+        n_unique = dim_location['Location_id'].nunique()
+        n_total = len(dim_location)
+        if n_unique != n_total:
+            print(f"  WARNING: Location_id not unique! {n_unique} unique vs {n_total} total")
+        else:
+            print(f"  Location_id uniqueness: VERIFIED")
+        
+        # Save with retry logic
         output_path = config.DIM_DIR / "dim_location.csv"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        dim_location.to_csv(output_path, index=False)
+        safe_to_csv(dim_location, output_path)
         
         print(f"  dim_location created: {len(dim_location):,} records")
         print(f"  PK: Location_id")
@@ -111,10 +168,9 @@ class DataSplitter:
         # Reorder columns
         dim_weather = dim_weather[['weather_id', 'Weather_Condition']]
         
-        # Save
+        # Save with retry logic
         output_path = config.DIM_DIR / "dim_weather.csv"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        dim_weather.to_csv(output_path, index=False)
+        safe_to_csv(dim_weather, output_path)
         
         print(f"  dim_weather created: {len(dim_weather):,} records")
         print(f"  PK: weather_id")
@@ -174,12 +230,13 @@ class DataSplitter:
             'Description'       # Attribute
         ]
         
-        accident_detail = fact[fact_cols]
+        # Only keep columns that exist
+        available_cols = [c for c in fact_cols if c in fact.columns]
+        accident_detail = fact[available_cols]
         
-        # Save
+        # Save with retry logic
         output_path = config.FACT_DIR / "accident_detail.csv"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        accident_detail.to_csv(output_path, index=False)
+        safe_to_csv(accident_detail, output_path)
         
         print(f"  accident_detail created: {len(accident_detail):,} records")
         print(f"  PK: ID")
