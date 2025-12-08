@@ -377,6 +377,9 @@ Validation PASSED
 Download from Kaggle:
 https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents
 
+## Visualize
+https://public.tableau.com/views/Visualize_17651699112650/WeatherDeepDive?:language=en-US&:sid=&:redirect=auth&:display_count=n&:origin=viz_share_link
+
 File: US_Accidents_March23.csv
 Place in: data/raw/
 
