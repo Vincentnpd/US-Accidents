@@ -15,6 +15,7 @@ from eda import EDA
 from cleaner import DataCleaner
 from splitter import DataSplitter
 from aggregate import Aggregator
+from data_validator import Validator
 
 
 def print_step(step_num, title):
@@ -60,6 +61,11 @@ def main():
         aggregator = Aggregator()
         aggregator.run_all()
         
+        # Step 6: Validate Data
+        print_step(6, "DATA VALIDATION")
+        validator = Validator()
+        validation_passed = validator.run_all()
+        
         # Summary
         elapsed = time.time() - start_time
         
@@ -67,18 +73,18 @@ def main():
         print("PIPELINE COMPLETED SUCCESSFULLY")
         print("="*60)
         print(f"\nExecution time: {elapsed:.1f} seconds ({elapsed/60:.1f} minutes)")
+        print(f"\nValidation: {'PASSED' if validation_passed else 'SOME CHECKS FAILED'}")
         print(f"\nOutput files created in data/processed/:")
         print("  - cleaned/accidents_cleaned.csv")
         print("  - dimensions/dim_time.csv")
         print("  - dimensions/dim_location.csv")
         print("  - dimensions/dim_weather.csv")
-        print("  - fact/fact_accident.csv")
-        print("  - aggregates/agg_federal().csv")
-        print("  - aggregates/agg_state_anomaly.csv")
-        print("  - aggregates/agg_infrastructure.csv")
-        print("  - aggregates/agg_weather_deep.csv")
-        print("  - aggregates/agg_city_pareto.csv")
-        print("  - aggregates/agg_time_pattern.csv")        
+        print("  - fact/accident_detail.csv")
+        print("  - aggregates/agg_federal.csv          (Dashboard 1)")
+        print("  - aggregates/agg_state_anomaly.csv    (Dashboard 2)")
+        print("  - aggregates/agg_city_by_state.csv    (Dashboard 3)")
+        print("  - aggregates/agg_weather_by_state.csv (Dashboard 4)")
+        print("  - aggregates/agg_time_pattern.csv     (Supplementary)")        
         
         print("\nData is ready for Tableau visualization")
         

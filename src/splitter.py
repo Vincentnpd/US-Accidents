@@ -1,290 +1,377 @@
 """
-Data Modeling Module - Star Schema Creation
-============================================
-Creates star schema from cleaned data:
-  - dim_time: Date (PK), Day, Month, Quarter, Year
-  - dim_location: Location_id (PK), Street, City, County, State, Timezone, infrastructure counts
-  - dim_weather: weather_id (PK), Weather_Condition
-  - accident_detail: ID, Location_id (FK), weather_id (FK), full_date (FK), 
-                     Start_Time, End_Time, Severity, Duration_min, Description
+Module Tạo Star Schema (ĐÃ SỬA BUG)
+===================================
+Tạo star schema từ dữ liệu đã làm sạch.
+
+SỬA LỖI QUAN TRỌNG: Duration_min giờ được CẮT sau khi tính lại.
+Bug cũ: Duration được tính lại KHÔNG cắt, gây ra giá trị impact 35,000%.
+
+Schema:
+    - dim_time: Date (PK), Day, Month, Quarter, Year
+    - dim_location: Location_id (PK), Street, City, County, State, Timezone, infra counts
+    - dim_weather: weather_id (PK), Weather_Condition
+    - accident_detail: ID, Location_id (FK), weather_id (FK), full_date (FK),
+                       Start_Time, End_Time, Severity, Duration_min, Description
 """
 
 import pandas as pd
+import numpy as np
 import os
 import time
 import config
+from transforms import cap_duration, MAX_DURATION_MIN
+from validators import (
+    validate_stage, validate_referential_integrity, 
+    quick_sanity_check, assert_no_extreme_values,
+    SPLITTER_RULES
+)
 
 
-def safe_to_csv(df, output_path, max_retries=3, retry_delay=2):
+def safe_to_csv(df: pd.DataFrame, output_path, max_retries: int = None, retry_delay: int = None) -> bool:
     """
-    Safely save DataFrame to CSV with retry logic for permission errors.
+    Lưu DataFrame ra CSV với retry nếu file bị khóa.
     
-    Args:
-        df: DataFrame to save
-        output_path: Path to save file
-        max_retries: Maximum number of retry attempts
-        retry_delay: Seconds to wait between retries
+    Tham số:
+        df: DataFrame cần lưu
+        output_path: Đường dẫn file
+        max_retries: Số lần thử lại tối đa
+        retry_delay: Số giây chờ giữa các lần thử
+    
+    Trả về:
+        True nếu thành công
     """
+    max_retries = max_retries or config.FILE_MAX_RETRIES
+    retry_delay = retry_delay or config.FILE_RETRY_DELAY
+    
     output_path.parent.mkdir(parents=True, exist_ok=True)
     
     for attempt in range(max_retries):
         try:
-            # Try to remove existing file first
             if output_path.exists():
                 try:
                     os.remove(output_path)
                 except PermissionError:
-                    pass  # Will be caught in main try
+                    pass
             
             df.to_csv(output_path, index=False)
             return True
             
         except PermissionError as e:
             if attempt < max_retries - 1:
-                print(f"  Warning: File is locked. Retrying in {retry_delay}s... ({attempt + 1}/{max_retries})")
-                print(f"  Please close the file if it's open in Excel or another program.")
+                print(f"  Cảnh báo: File bị khóa. Thử lại {attempt + 1}/{max_retries} sau {retry_delay}s...")
+                print(f"  Vui lòng đóng file nếu đang mở trong Excel.")
                 time.sleep(retry_delay)
             else:
-                print(f"\n  ERROR: Cannot write to {output_path}")
-                print(f"  The file is being used by another process.")
-                print(f"  Please:")
-                print(f"    1. Close Excel or any program using this file")
-                print(f"    2. Close any File Explorer windows showing this folder")
-                print(f"    3. Run the script again")
+                print(f"\n  LỖI: Không thể ghi vào {output_path}")
+                print(f"  File đang được sử dụng bởi chương trình khác.")
                 raise e
     
     return False
 
 
 class DataSplitter:
-    """Create star schema from cleaned data"""
+    """
+    Tạo star schema từ dữ liệu đã làm sạch.
     
-    def __init__(self, df):
+    QUAN TRỌNG: Validate tất cả output và kiểm tra referential integrity.
+    """
+    
+    def __init__(self, df: pd.DataFrame):
         self.df = df.copy()
+        self.dim_time = None
+        self.dim_location = None
+        self.dim_weather = None
+        self.fact = None
         
-    def create_dim_time(self):
+    def create_dim_time(self) -> pd.DataFrame:
         """
-        Create time dimension table.
+        Tạo bảng dimension thời gian.
         
-        PK: Date (date only, no time component)
-        Columns: Date, Day, Month, Quarter, Year
+        PK: Date (chỉ ngày, không có giờ)
+        Các cột: Date, Day, Month, Quarter, Year
         """
-        print("\nCreating dim_time")
+        print("\n[Splitter] Đang tạo dim_time...")
         
-        # Parse datetime
+        # Đảm bảo datetime
         self.df['Start_Time'] = pd.to_datetime(self.df['Start_Time'])
         
-        # Extract date components
+        # Trích xuất các thành phần ngày
         self.df['Date'] = self.df['Start_Time'].dt.date
         self.df['Day'] = self.df['Start_Time'].dt.day
         self.df['Month'] = self.df['Start_Time'].dt.month
         self.df['Quarter'] = self.df['Start_Time'].dt.quarter
         self.df['Year'] = self.df['Start_Time'].dt.year
         
-        # Create dimension (Date as PK - no Start_Time)
+        # Tạo dimension
         time_cols = ['Date', 'Day', 'Month', 'Quarter', 'Year']
         dim_time = self.df[time_cols].drop_duplicates().reset_index(drop=True)
-        
-        # Sort by date
         dim_time = dim_time.sort_values('Date').reset_index(drop=True)
         
-        # Save with retry logic
+        # Validate
+        assert dim_time['Date'].nunique() == len(dim_time), "dim_time Date không duy nhất!"
+        
+        # Lưu
         output_path = config.DIM_DIR / "dim_time.csv"
         safe_to_csv(dim_time, output_path)
         
-        print(f"  dim_time created: {len(dim_time):,} records")
-        print(f"  PK: Date")
-        print(f"  Date range: {dim_time['Date'].min()} to {dim_time['Date'].max()}")
+        print(f"  Số bản ghi: {len(dim_time):,}")
+        print(f"  PK: Date (duy nhất: ĐÃ XÁC NHẬN)")
+        print(f"  Khoảng: {dim_time['Date'].min()} đến {dim_time['Date'].max()}")
         
+        self.dim_time = dim_time
         return dim_time
     
-    def create_dim_location(self):
+    def create_dim_location(self) -> pd.DataFrame:
         """
-        Create location dimension table with aggregated boolean counts.
+        Tạo bảng dimension địa điểm.
         
-        PK: Location_id (Street + "_" + City) - MUST BE UNIQUE
+        PK: Location_id (Street + "_" + City) - PHẢI DUY NHẤT
         """
-        print("\nCreating dim_location")
+        print("\n[Splitter] Đang tạo dim_location...")
         
-        # Create Location_id
+        # Tạo Location_id
         self.df['Location_id'] = (
             self.df['Street'].astype(str) + "_" + 
             self.df['City'].astype(str)
         )
         
+        # Các cột cần aggregate
         location_cols = ['Street', 'City', 'County', 'State', 'Timezone']
-        bool_cols = ['Amenity', 'Crossing', 'Junction', 'Stop', 'Traffic_Signal']
+        bool_cols = config.INFRA_COLUMNS
         
-        # Check which columns exist
         available_location = [c for c in location_cols if c in self.df.columns]
         available_bool = [c for c in bool_cols if c in self.df.columns]
         
-        # Build aggregation dict:
-        # - Location columns: take first value
-        # - Boolean columns: sum of True values
-        agg_dict = {}
-        for col in available_location:
-            agg_dict[col] = 'first'
+        # Xây dựng aggregation: cột địa điểm = first, cột boolean = sum
+        agg_dict = {col: 'first' for col in available_location}
         for col in available_bool:
-            agg_dict[col] = lambda x: (x == True).sum()
+            agg_dict[col] = lambda x, c=col: (x == True).sum()
         
-        # Groupby ONLY Location_id to ensure uniqueness
+        # Group by Location_id để đảm bảo duy nhất
         dim_location = self.df.groupby('Location_id', dropna=False).agg(agg_dict).reset_index()
+        dim_location = dim_location.sort_values(['State', 'City']).reset_index(drop=True)
         
-        # Sort
-        dim_location = dim_location.sort_values(
-            ['State', 'City']
-        ).reset_index(drop=True)
-        
-        # Validate uniqueness
+        # Validate tính duy nhất
         n_unique = dim_location['Location_id'].nunique()
         n_total = len(dim_location)
-        if n_unique != n_total:
-            print(f"  WARNING: Location_id not unique! {n_unique} unique vs {n_total} total")
-        else:
-            print(f"  Location_id uniqueness: VERIFIED")
+        assert n_unique == n_total, f"Location_id không duy nhất! {n_unique} vs {n_total}"
         
-        # Save with retry logic
+        # Lưu
         output_path = config.DIM_DIR / "dim_location.csv"
         safe_to_csv(dim_location, output_path)
         
-        print(f"  dim_location created: {len(dim_location):,} records")
-        print(f"  PK: Location_id")
-        print(f"  States: {dim_location['State'].nunique()}")
+        print(f"  Số bản ghi: {len(dim_location):,}")
+        print(f"  PK: Location_id (duy nhất: ĐÃ XÁC NHẬN)")
+        print(f"  Số bang: {dim_location['State'].nunique()}")
         
+        self.dim_location = dim_location
         return dim_location
     
-    def create_dim_weather(self):
+    def create_dim_weather(self) -> pd.DataFrame:
         """
-        Create weather dimension table.
+        Tạo bảng dimension thời tiết.
         
         PK: weather_id (W1, W2, ...)
         """
-        print("\nCreating dim_weather")
+        print("\n[Splitter] Đang tạo dim_weather...")
         
         dim_weather = self.df[['Weather_Condition']].drop_duplicates().reset_index(drop=True)
         dim_weather['weather_id'] = ["W" + str(i+1) for i in range(len(dim_weather))]
-        
-        # Reorder columns
         dim_weather = dim_weather[['weather_id', 'Weather_Condition']]
         
-        # Save with retry logic
+        # Validate
+        assert dim_weather['weather_id'].nunique() == len(dim_weather), "weather_id không duy nhất!"
+        
+        # Lưu
         output_path = config.DIM_DIR / "dim_weather.csv"
         safe_to_csv(dim_weather, output_path)
         
-        print(f"  dim_weather created: {len(dim_weather):,} records")
-        print(f"  PK: weather_id")
+        print(f"  Số bản ghi: {len(dim_weather):,}")
+        print(f"  PK: weather_id (duy nhất: ĐÃ XÁC NHẬN)")
         
+        self.dim_weather = dim_weather
         return dim_weather
     
-    def create_fact_table(self, dim_weather, dim_location):
+    def create_fact_table(self) -> pd.DataFrame:
         """
-        Create accident_detail fact table.
+        Tạo bảng fact accident_detail.
+        
+        SỬA LỖI QUAN TRỌNG: Duration_min được CẮT sau khi tính lại.
         
         Keys:
-          - ID: Primary key
-          - Location_id: FK -> dim_location
-          - weather_id: FK -> dim_weather  
-          - full_date: FK -> dim_time.Date
+            - ID: Khóa chính
+            - Location_id: FK -> dim_location
+            - weather_id: FK -> dim_weather  
+            - full_date: FK -> dim_time.Date
         
         Measures:
-          - Severity, Duration_min
-        
-        Attributes:
-          - Start_Time, End_Time (full timestamp), Description
+            - Severity, Duration_min (ĐÃ CẮT!)
         """
-        print("\nCreating accident_detail")
+        print("\n[Splitter] Đang tạo accident_detail...")
         
         fact = self.df.copy()
         
-        # Map weather_id from dim_weather
-        fact = fact.merge(dim_weather, on='Weather_Condition', how='left')
+        # Map weather_id
+        fact = fact.merge(self.dim_weather, on='Weather_Condition', how='left')
         
-        # Create Location_id (if not exists)
+        # Tạo Location_id (nếu chưa có)
         if 'Location_id' not in fact.columns:
             fact['Location_id'] = (
                 fact['Street'].astype(str) + "_" + 
                 fact['City'].astype(str)
             )
         
-        # Create full_date as FK to dim_time.Date
+        # Tạo full_date
         fact['Start_Time'] = pd.to_datetime(fact['Start_Time'])
         fact['End_Time'] = pd.to_datetime(fact['End_Time'])
         fact['full_date'] = fact['Start_Time'].dt.date
         
-        # Calculate Duration_min
+        # ================================================================
+        # SỬA LỖI QUAN TRỌNG: Tính Duration_min CÓ CẮT
+        # ================================================================
+        # Bug cũ: Duration được tính lại KHÔNG cắt
+        # Kết quả: Duration = 51,118 phút (35 ngày!) → impact = 35,859%
+        
         fact['Duration_min'] = (
             (fact['End_Time'] - fact['Start_Time']).dt.total_seconds() / 60
         )
         
-        # Select fact columns
+        # CẮT OUTLIERS - TRƯỚC ĐÂY BỊ THIẾU!
+        outliers_cao = (fact['Duration_min'] > MAX_DURATION_MIN).sum()
+        outliers_am = (fact['Duration_min'] < 0).sum()
+        
+        fact.loc[fact['Duration_min'] > MAX_DURATION_MIN, 'Duration_min'] = MAX_DURATION_MIN
+        fact.loc[fact['Duration_min'] < 0, 'Duration_min'] = 0
+        
+        print(f"  [SỬA LỖI] Đã cắt Duration outliers: {outliers_cao:,} cao, {outliers_am:,} âm")
+        
+        # Validate Duration đã được cắt
+        actual_max = fact['Duration_min'].max()
+        assert actual_max <= MAX_DURATION_MIN, \
+            f"NGHIÊM TRỌNG: Duration_min chưa được cắt! Max={actual_max} > {MAX_DURATION_MIN}"
+        print(f"  Duration_min max: {actual_max:.1f} (giới hạn: {MAX_DURATION_MIN}) ✓")
+        # ================================================================
+        
+        # Chọn các cột fact
         fact_cols = [
             'ID',               # PK
             'Location_id',      # FK -> dim_location
             'weather_id',       # FK -> dim_weather
             'full_date',        # FK -> dim_time.Date
-            'Start_Time',       # Full timestamp
-            'End_Time',         # Full timestamp
+            'Start_Time',       # Timestamp đầy đủ
+            'End_Time',         # Timestamp đầy đủ
             'Severity',         # Measure
-            'Duration_min',     # Measure
+            'Duration_min',     # Measure (ĐÃ CẮT!)
             'Description'       # Attribute
         ]
         
-        # Only keep columns that exist
         available_cols = [c for c in fact_cols if c in fact.columns]
-        accident_detail = fact[available_cols]
+        accident_detail = fact[available_cols].copy()
         
-        # Save with retry logic
+        # Lưu
         output_path = config.FACT_DIR / "accident_detail.csv"
         safe_to_csv(accident_detail, output_path)
         
-        print(f"  accident_detail created: {len(accident_detail):,} records")
+        print(f"  Số bản ghi: {len(accident_detail):,}")
         print(f"  PK: ID")
         print(f"  FKs: Location_id, weather_id, full_date")
         
+        self.fact = accident_detail
         return accident_detail
     
-    def validate_schema(self, dim_time, dim_location, dim_weather, fact):
-        """Validate referential integrity"""
-        print("\nValidating schema")
+    def validate_schema(self) -> bool:
+        """
+        Validate referential integrity giữa fact và dimension.
         
-        # Convert dim_time.Date to same type as fact.full_date
-        dim_dates = set(pd.to_datetime(dim_time['Date']).dt.date)
-        fact_dates = set(pd.to_datetime(fact['full_date']).dt.date)
+        Trả về:
+            True nếu tất cả validation pass
+        """
+        print("\n[Splitter] Đang validate schema integrity...")
         
-        missing_date = len(fact_dates - dim_dates)
-        missing_location = fact[~fact['Location_id'].isin(dim_location['Location_id'])].shape[0]
-        missing_weather = fact[~fact['weather_id'].isin(dim_weather['weather_id'])].shape[0]
+        all_valid = True
         
-        print(f"  Missing full_date in dim_time: {missing_date}")
-        print(f"  Missing Location_id in dim_location: {missing_location}")
-        print(f"  Missing weather_id in dim_weather: {missing_weather}")
+        # Kiểm tra fact.full_date -> dim_time.Date
+        dim_dates = set(pd.to_datetime(self.dim_time['Date']).dt.date)
+        fact_dates = set(pd.to_datetime(self.fact['full_date']).dt.date)
+        missing_dates = len(fact_dates - dim_dates)
         
-        if missing_date == 0 and missing_location == 0 and missing_weather == 0:
-            print("  Schema validation: PASSED")
+        # Kiểm tra fact.Location_id -> dim_location.Location_id
+        missing_locations = self.fact[
+            ~self.fact['Location_id'].isin(self.dim_location['Location_id'])
+        ].shape[0]
+        
+        # Kiểm tra fact.weather_id -> dim_weather.weather_id
+        missing_weather = self.fact[
+            ~self.fact['weather_id'].isin(self.dim_weather['weather_id'])
+        ].shape[0]
+        
+        # Báo cáo
+        print(f"  full_date orphans: {missing_dates}")
+        print(f"  Location_id orphans: {missing_locations}")
+        print(f"  weather_id orphans: {missing_weather}")
+        
+        if missing_dates + missing_locations + missing_weather == 0:
+            print("  Schema validation: THÀNH CÔNG ✓")
         else:
-            print("  Schema validation: WARNING - orphan records found")
+            print("  Schema validation: CẢNH BÁO - có bản ghi mồ côi!")
+            all_valid = False
+        
+        # Validation bổ sung: Kiểm tra Duration_min đã được cắt
+        max_duration = self.fact['Duration_min'].max()
+        if max_duration > MAX_DURATION_MIN:
+            print(f"  NGHIÊM TRỌNG: Duration_min chưa được cắt! Max={max_duration}")
+            all_valid = False
+        else:
+            print(f"  Duration_min cap: ĐÃ XÁC NHẬN (max={max_duration:.1f})")
+        
+        return all_valid
     
-    def run_all(self):
-        """Create complete star schema"""
+    def run_all(self) -> tuple:
+        """
+        Tạo star schema hoàn chỉnh với validation.
+        
+        Trả về:
+            Tuple (dim_time, dim_location, dim_weather, fact)
+        """
         print("\n" + "="*60)
-        print("Creating Star Schema")
+        print("TẠO STAR SCHEMA")
         print("="*60)
+        print(f"Input: {len(self.df):,} bản ghi")
         
-        dim_time = self.create_dim_time()
-        dim_location = self.create_dim_location()
-        dim_weather = self.create_dim_weather()
-        fact = self.create_fact_table(dim_weather, dim_location)
+        # Tạo dimensions
+        self.create_dim_time()
+        self.create_dim_location()
+        self.create_dim_weather()
         
-        self.validate_schema(dim_time, dim_location, dim_weather, fact)
+        # Tạo fact table (có sửa Duration)
+        self.create_fact_table()
         
+        # Validate
+        is_valid = self.validate_schema()
+        
+        # Tổng kết
         print("\n" + "-"*60)
-        print("Schema Summary")
+        print("TÓM TẮT SCHEMA")
         print("-"*60)
-        print(f"  dim_time:        {len(dim_time):>10,} records  (PK: Date)")
-        print(f"  dim_location:    {len(dim_location):>10,} records  (PK: Location_id)")
-        print(f"  dim_weather:     {len(dim_weather):>10,} records  (PK: weather_id)")
-        print(f"  accident_detail: {len(fact):>10,} records  (PK: ID)")
-        print("\nStar schema created successfully")
+        print(f"  dim_time:        {len(self.dim_time):>10,} bản ghi  (PK: Date)")
+        print(f"  dim_location:    {len(self.dim_location):>10,} bản ghi  (PK: Location_id)")
+        print(f"  dim_weather:     {len(self.dim_weather):>10,} bản ghi  (PK: weather_id)")
+        print(f"  accident_detail: {len(self.fact):>10,} bản ghi  (PK: ID)")
+        print(f"\n  Validation: {'THÀNH CÔNG' if is_valid else 'THẤT BẠI'}")
         
-        return dim_time, dim_location, dim_weather, fact
+        # Kiểm tra nhanh
+        quick_sanity_check(self.fact, 'fact_table')
+        
+        return self.dim_time, self.dim_location, self.dim_weather, self.fact
+
+
+# =============================================================================
+# TEST MODULE
+# =============================================================================
+
+if __name__ == "__main__":
+    print("Module DataSplitter đã load.")
+    print("Cách dùng: splitter = DataSplitter(cleaned_df); tables = splitter.run_all()")
+    print("\nSỬA LỖI QUAN TRỌNG trong phiên bản này:")
+    print("  - Duration_min giờ được CẮT sau khi tính lại")
+    print(f"  - Duration tối đa: {MAX_DURATION_MIN} phút ({MAX_DURATION_MIN/60:.0f} giờ)")
