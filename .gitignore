@@ -9,7 +9,8 @@ __pycache__/
 # --- Dữ liệu ---
 # Bỏ qua file .env
 src/.env
-
+*.twbx
+*.twbr
 # KHÔNG bỏ qua chính thư mục raw và processed
 !data/raw/
 !data/processed/
