@@ -289,12 +289,3 @@ class DataCleaner:
         quick_sanity_check(self.df, 'cleaner_output')
         
         return self.df
-
-
-# =============================================================================
-# TEST MODULE
-# =============================================================================
-
-if __name__ == "__main__":
-    print("Module DataCleaner đã load.")
-    print("Cách dùng: cleaner = DataCleaner(df); cleaned_df = cleaner.run_all()")

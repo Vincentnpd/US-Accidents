@@ -436,8 +436,3 @@ class Aggregator:
         print("  - agg_city_by_state.csv     (Dashboard 3)")
         print("  - agg_weather_by_state.csv  (Dashboard 4)")
         print("  - agg_time_pattern.csv      (Supplementary)")
-
-
-if __name__ == "__main__":
-    agg = Aggregator()
-    agg.run_all()

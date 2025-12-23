@@ -505,25 +505,3 @@ def categorize_anomaly(z_score: float) -> str:
     if z_score > 0:
         return 'Elevated'   # Tăng cao
     return 'Normal'         # Bình thường
-
-
-# =============================================================================
-# TEST MODULE
-# =============================================================================
-
-if __name__ == "__main__":
-    print("Module Transforms - Nơi Duy Nhất Chứa Logic Biến Đổi")
-    print("=" * 50)
-    print("\nHằng số:")
-    print(f"  MAX_DURATION_MIN: {MAX_DURATION_MIN} phút")
-    print(f"  HIGH_SEVERITY_THRESHOLD: {HIGH_SEVERITY_THRESHOLD}")
-    print(f"  INFRA_WEIGHTS: {INFRA_WEIGHTS}")
-    
-    print("\nCác hàm có sẵn:")
-    print("  Duration: calculate_duration(), cap_duration()")
-    print("  Thời tiết: categorize_weather(), add_weather_category()")
-    print("  Hạ tầng: calculate_infra_score(), classify_urban_rural()")
-    print("  Severity: is_high_severity(), add_high_severity_flag()")
-    print("  Thời gian: add_time_features(), get_time_period()")
-    print("  Chỉ số: calculate_pct_change(), calculate_z_score()")
-    print("  Rủi ro: calculate_weather_risk_score(), categorize_risk()")

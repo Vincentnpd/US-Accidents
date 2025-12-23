@@ -363,15 +363,3 @@ class DataSplitter:
         quick_sanity_check(self.fact, 'fact_table')
         
         return self.dim_time, self.dim_location, self.dim_weather, self.fact
-
-
-# =============================================================================
-# TEST MODULE
-# =============================================================================
-
-if __name__ == "__main__":
-    print("Module DataSplitter đã load.")
-    print("Cách dùng: splitter = DataSplitter(cleaned_df); tables = splitter.run_all()")
-    print("\nSỬA LỖI QUAN TRỌNG trong phiên bản này:")
-    print("  - Duration_min giờ được CẮT sau khi tính lại")
-    print(f"  - Duration tối đa: {MAX_DURATION_MIN} phút ({MAX_DURATION_MIN/60:.0f} giờ)")

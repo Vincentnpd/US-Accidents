@@ -206,15 +206,3 @@ def create_date_dimension(start_date, end_date):
     })
     
     return dim_date
-
-
-if __name__ == "__main__":
-    print("Utility Functions Available:")
-    print("- calculate_pareto()")
-    print("- get_severity_category()")
-    print("- get_time_period()")
-    print("- calculate_yoy_change()")
-    print("- validate_dataframe()")
-    print("- optimize_dtypes()")
-    print("- get_weather_category()")
-    print("- create_date_dimension()")

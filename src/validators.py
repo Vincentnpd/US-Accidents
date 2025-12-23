@@ -402,35 +402,3 @@ def assert_percentages_valid(df: pd.DataFrame,
             total = df[column].sum()
             assert 99 <= total <= 101, \
                 f"[{stage}] {column} tổng = {total}, mong đợi ~100"
-
-
-# =============================================================================
-# TEST MODULE
-# =============================================================================
-
-if __name__ == "__main__":
-    print("Module Validators - Kiểm Tra Chất Lượng Dữ Liệu")
-    print("=" * 50)
-    
-    # Test với data mẫu
-    test_df = pd.DataFrame({
-        'ID': ['A1', 'A2', 'A3'],
-        'Severity': [1, 2, 5],      # 5 không hợp lệ!
-        'Duration_min': [30, 2000, -10],  # 2000 và -10 không hợp lệ!
-        'pct': [40, 35, 25]
-    })
-    
-    print("\nData test:")
-    print(test_df)
-    
-    print("\nChạy validation...")
-    try:
-        validate_stage(test_df, 'test', {
-            'Severity': {'min': 1, 'max': 4},
-            'Duration_min': {'min': 0, 'max': 1440}
-        }, raise_on_fail=False)
-    except ValidationError as e:
-        print(f"\nLỗi Validation: {e}")
-    
-    print("\nKiểm tra nhanh:")
-    quick_sanity_check(test_df, 'test')

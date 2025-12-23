@@ -34,39 +34,53 @@ def main():
     print("="*60)
     
     try:
+        # ============================================
         # Step 1: Load Data
+        # ============================================
         print_step(1, "DATA LOADING")
         loader = DataLoader()
-        df = loader.load_data()
-        df = loader.filter_by_year()
+        df = loader.load_data()          # Load raw CSV
+        df = loader.filter_by_year()     # Filter 2019-2022
         loader.get_summary()
         
+        # ============================================
         # Step 2: Exploratory Data Analysis
+        # ============================================
         print_step(2, "EXPLORATORY DATA ANALYSIS")
         eda = EDA(df)
-        eda.run_all()
+        eda.run_all()                    # Chi in thong ke, khong tra ve gi
         
+        # ============================================
         # Step 3: Data Cleaning
+        # ============================================
         print_step(3, "DATA CLEANING")
         cleaner = DataCleaner(df)
-        df_cleaned = cleaner.run_all()
+        df_cleaned = cleaner.run_all()   # Tra ve df da clean + luu file
         
+        # ============================================
         # Step 4: Create Star Schema
+        # ============================================
         print_step(4, "STAR SCHEMA CREATION")
         splitter = DataSplitter(df_cleaned)
-        splitter.run_all()
+        splitter.run_all()               # Tao dim + fact + luu file
         
+        # ============================================
         # Step 5: Generate Aggregates
+        # ============================================
         print_step(5, "AGGREGATE GENERATION")
-        aggregator = Aggregator()
-        aggregator.run_all()
+        aggregator = Aggregator()        # Doc tu file da luu
+        aggregator.run_all()             # Tao 5 aggregates + luu file
         
+        # ============================================
         # Step 6: Validate Data
+        # ============================================
         print_step(6, "DATA VALIDATION")
-        validator = Validator()
+        validator = Validator()          # Doc tu file da luu
         validation_passed = validator.run_all()
         
+        # ============================================
         # Summary
+        # ============================================
         elapsed = time.time() - start_time
         
         print("\n" + "="*60)
@@ -74,26 +88,22 @@ def main():
         print("="*60)
         print(f"\nExecution time: {elapsed:.1f} seconds ({elapsed/60:.1f} minutes)")
         print(f"\nValidation: {'PASSED' if validation_passed else 'SOME CHECKS FAILED'}")
-        print(f"\nOutput files created in data/processed/:")
+        print(f"\nOutput files:")
         print("  - cleaned/accidents_cleaned.csv")
         print("  - dimensions/dim_time.csv")
         print("  - dimensions/dim_location.csv")
         print("  - dimensions/dim_weather.csv")
         print("  - fact/accident_detail.csv")
-        print("  - aggregates/agg_federal.csv          (Dashboard 1)")
-        print("  - aggregates/agg_state_anomaly.csv    (Dashboard 2)")
-        print("  - aggregates/agg_city_by_state.csv    (Dashboard 3)")
-        print("  - aggregates/agg_weather_by_state.csv (Dashboard 4)")
-        print("  - aggregates/agg_time_pattern.csv     (Supplementary)")        
-        
-        print("\nData is ready for Tableau visualization")
+        print("  - aggregates/agg_federal.csv")
+        print("  - aggregates/agg_state_anomaly.csv")
+        print("  - aggregates/agg_city_by_state.csv")
+        print("  - aggregates/agg_weather_by_state.csv")
+        print("  - aggregates/agg_time_pattern.csv")
         
     except FileNotFoundError as e:
         print(f"\nError: {e}")
         print("\nPlease ensure dataset is placed at:")
         print("  data/raw/US_Accidents_March23.csv")
-        print("\nDownload from:")
-        print("  https://www.kaggle.com/datasets/sobhanmoosavi/us-accidents")
         sys.exit(1)
         
     except Exception as e:
